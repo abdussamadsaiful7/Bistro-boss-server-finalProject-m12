@@ -2,16 +2,18 @@ const express = require('express');
 const app = express();
 const cors = require('cors');
 require('dotenv').config();
+const jwt = require('jsonwebtoken');
 const { MongoClient, ServerApiVersion, ObjectId } = require('mongodb');
 const port = process.env.PORT || 5000;
+
 
 //middleware
 app.use(cors());
 app.use(express.json());
 
 
-app.get('/', (req, res)=>{
-    res.send('Bistro boss server is running.....');
+app.get('/', (req, res) => {
+  res.send('Bistro boss server is running.....');
 
 })
 
@@ -30,51 +32,97 @@ const client = new MongoClient(uri, {
 async function run() {
   try {
     // Connect the client to the server	(optional starting in v4.7)
-   //await client.connect();
+    //await client.connect();
 
 
-   const menuCollection = client.db("bistroDB").collection("menu");
-   const reviewsCollection = client.db("bistroDB").collection("reviews");
-   const cartCollection = client.db("bistroDB").collection("carts");
+    const menuCollection = client.db("bistroDB").collection("menu");
+    const reviewsCollection = client.db("bistroDB").collection("reviews");
+    const cartCollection = client.db("bistroDB").collection("carts");
+    const usersCollection = client.db("bistroDB").collection("users");
 
-   app.get('/menu', async(req, res)=>{
-    const result = await menuCollection.find().toArray();
-    res.send(result);
-   })
+    //how to create hidden key : press on terminal : require('crypto').randomBytes(64).toString('hex')
+    //jwt
+    app.post('/jwt', (req, res)=>{
+      const user = req.body;
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1hr'})
+      res.send({token});
+    })
 
-   //reviews
-   app.get('/reviews', async(req, res)=>{
-    const result = await reviewsCollection.find().toArray();
-    res.send(result);
-   })
 
-   //cart collection 
+    //users related apis
+    app.get('/users', async (req, res) => {
+      const result = await usersCollection.find().toArray();
+      res.send(result);
+    })
 
-   app.get('/carts', async(req, res)=>{
-    const email = req.query.email;
-   // console.log(email)
-    if(!email){
-      res.send([]);
-    }
-    const query = {email: email};
-    const result = await cartCollection.find(query).toArray();
-    res.send(result);
-   })
 
-   app.post('/carts', async(req,res)=>{
-    const item = req.body;
-    console.log(item);
-    const result = await cartCollection.insertOne(item)
-    res.send(result);
-   })
+    app.post('/users', async (req, res) => {
+      const user = req.body;
+     // console.log(user);
+      const query = { email: user.email }
+      const existingUser = await usersCollection.findOne(query);
+    //  console.log('existing user', existingUser);
+      if (existingUser) {
+        return res.send({ message: 'user already exists' })
+      }
+      const result = await usersCollection.insertOne(user);
+      res.send(result);
+    })
 
-   //delete
-   app.delete('/carts/:id', async(req, res)=>{
-    const id = req.params.id;
-    const query = {_id: new ObjectId(id)}
-    const result = await cartCollection.deleteOne(query)
-    res.send(result);
-   })
+    app.patch('/users/admin/:id', async (req, res) => {
+      const id = req.params.id;
+    //  console.log(id)
+      const filter = { _id: new ObjectId(id) };
+      const updateDoc = {
+        $set: {
+          role: 'admin'
+        },
+      };
+      const result = await  usersCollection.updateOne(filter, updateDoc);
+      res.send(result);
+    })
+
+
+
+
+
+    //menu related apis
+    app.get('/menu', async (req, res) => {
+      const result = await menuCollection.find().toArray();
+      res.send(result);
+    })
+
+    //reviews related apis
+    app.get('/reviews', async (req, res) => {
+      const result = await reviewsCollection.find().toArray();
+      res.send(result);
+    })
+
+    //cart collection 
+    app.get('/carts', async (req, res) => {
+      const email = req.query.email;
+      if (!email) {
+        res.send([]);
+      }
+      const query = { email: email };
+      const result = await cartCollection.find(query).toArray();
+      res.send(result);
+    })
+
+    app.post('/carts', async (req, res) => {
+      const item = req.body;
+      console.log(item);
+      const result = await cartCollection.insertOne(item)
+      res.send(result);
+    })
+
+    //delete
+    app.delete('/carts/:id', async (req, res) => {
+      const id = req.params.id;
+      const query = { _id: new ObjectId(id) }
+      const result = await cartCollection.deleteOne(query)
+      res.send(result);
+    })
 
 
 
@@ -95,8 +143,8 @@ run().catch(console.dir);
 
 
 
-app.listen(port, ()=>{
-    console.log(`Bistro boss is running is port ${port}`);
+app.listen(port, () => {
+  console.log(`Bistro boss is running is port ${port}`);
 })
 
 
