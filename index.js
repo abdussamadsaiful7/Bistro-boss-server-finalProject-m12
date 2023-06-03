@@ -59,6 +59,7 @@ async function run() {
     const reviewsCollection = client.db("bistroDB").collection("reviews");
     const cartCollection = client.db("bistroDB").collection("carts");
     const usersCollection = client.db("bistroDB").collection("users");
+    const paymentCollection = client.db("bistroDB").collection("payments");
 
     //how to create hidden key : press on terminal : require('crypto').randomBytes(64).toString('hex')
     //jwt
@@ -200,21 +201,30 @@ async function run() {
 
     //create payment intent
     app.post('/create-payment-intent', verifyJWT, async(req, res)=>{
-      const{price}= req.body;
+      const { price } = req.body;
       const amount = price*100;
-      const paymentIntent =await stripe.paymentIntents.create({
+      const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: 'usd',
         payment_method_types: ['card']
       });
+
       res.send({
-        clientSecret: paymentIntent.client_secret,
+        clientSecret: paymentIntent.client_secret
       })
 
     })
 
+    //payment related api
+    app.post('/payments', verifyJWT, async(req, res)=>{
+      const payment = req.body;
+      const insertResult = await paymentCollection.insertOne(payment);
 
+      const query = {_id: { $in: payment.cartItems.map(id=> new ObjectId(id))}}
+      const deleteResult = await cartCollection.deleteMany(query)
 
+      res.send({ insertResult, deleteResult});
+    })
 
 
     // Send a ping to confirm a successful connection
