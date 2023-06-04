@@ -12,18 +12,18 @@ const port = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-const verifyJWT = (req, res, next)=>{
+const verifyJWT = (req, res, next) => {
   const authorization = req.headers.authorization;
-  if(!authorization){
-    return res.status(401).send({error: true, message: 'unauthorized access'})
+  if (!authorization) {
+    return res.status(401).send({ error: true, message: 'unauthorized access' })
   }
 
   // bearer token
   const token = authorization.split(' ')[1];
 
-  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded)=>{
-    if(err){
-      return res.status(401).send({error: true, message: 'unauthorized access'})
+  jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, (err, decoded) => {
+    if (err) {
+      return res.status(401).send({ error: true, message: 'unauthorized access' })
     }
     req.decoded = decoded;
     next();
@@ -63,20 +63,20 @@ async function run() {
 
     //how to create hidden key : press on terminal : require('crypto').randomBytes(64).toString('hex')
     //jwt
-    app.post('/jwt', (req, res)=>{
+    app.post('/jwt', (req, res) => {
       const user = req.body;
-      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, {expiresIn: '1hr'})
-      res.send({token});
+      const token = jwt.sign(user, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1hr' })
+      res.send({ token });
     })
-    
+
 
     //warning: use verifyJWT before using verifyAdmin
-    const verifyAdmin = async(req, res, next) =>{
-      const email =req.decoded.email;
-      const query = {email: email}
+    const verifyAdmin = async (req, res, next) => {
+      const email = req.decoded.email;
+      const query = { email: email }
       const user = await usersCollection.findOne(query);
-      if(user?.role !== 'admin'){
-        return res.status(403).send({error: true, message: 'forbidden message'});
+      if (user?.role !== 'admin') {
+        return res.status(403).send({ error: true, message: 'forbidden message' });
       }
       next();
     }
@@ -96,10 +96,10 @@ async function run() {
 
     app.post('/users', async (req, res) => {
       const user = req.body;
-     // console.log(user);
+      // console.log(user);
       const query = { email: user.email }
       const existingUser = await usersCollection.findOne(query);
-    //  console.log('existing user', existingUser);
+      //  console.log('existing user', existingUser);
       if (existingUser) {
         return res.send({ message: 'user already exists' })
       }
@@ -110,29 +110,29 @@ async function run() {
     //security layer: verifyJWT
     //email same
     //check admin
-    app.get('/users/admin/:email', verifyJWT, async(req, res)=>{
-      const email =req.params.email;
+    app.get('/users/admin/:email', verifyJWT, async (req, res) => {
+      const email = req.params.email;
 
-      if(req.decoded.email !== email){
-        res.send({admin: false})
+      if (req.decoded.email !== email) {
+        res.send({ admin: false })
       }
 
-      const query = {email: email}
+      const query = { email: email }
       const user = await usersCollection.findOne(query);
-      const result = {admin: user?.role === 'admin'};
+      const result = { admin: user?.role === 'admin' };
       res.send(result);
     })
 
     app.patch('/users/admin/:id', async (req, res) => {
       const id = req.params.id;
-    //  console.log(id)
+      //  console.log(id)
       const filter = { _id: new ObjectId(id) };
       const updateDoc = {
         $set: {
           role: 'admin'
         },
       };
-      const result = await  usersCollection.updateOne(filter, updateDoc);
+      const result = await usersCollection.updateOne(filter, updateDoc);
       res.send(result);
     })
 
@@ -146,16 +146,16 @@ async function run() {
       res.send(result);
     })
 
-  
-    app.post('/menu', verifyJWT, verifyAdmin, async(req, res)=>{
+
+    app.post('/menu', verifyJWT, verifyAdmin, async (req, res) => {
       const newItem = req.body;
-      const result = await  menuCollection.insertOne(newItem);
+      const result = await menuCollection.insertOne(newItem);
       res.send(result);
     })
 
-    app.delete('/menu/:id', verifyJWT, verifyAdmin, async(req, res)=>{
+    app.delete('/menu/:id', verifyJWT, verifyAdmin, async (req, res) => {
       const id = req.params.id;
-      const query={_id: new ObjectId(id)}
+      const query = { _id: new ObjectId(id) }
       const result = await menuCollection.deleteOne(query);
       res.send(result);
     })
@@ -175,8 +175,8 @@ async function run() {
       }
 
       const decodedEmail = req.decoded.email;
-      if(email!= decodedEmail){
-        return res.status(403).send({error: true, message: 'forbidden access'})
+      if (email != decodedEmail) {
+        return res.status(403).send({ error: true, message: 'forbidden access' })
       }
 
       const query = { email: email };
@@ -186,7 +186,7 @@ async function run() {
 
     app.post('/carts', async (req, res) => {
       const item = req.body;
-      console.log(item);
+      // console.log(item);
       const result = await cartCollection.insertOne(item)
       res.send(result);
     })
@@ -200,9 +200,9 @@ async function run() {
     })
 
     //create payment intent
-    app.post('/create-payment-intent', verifyJWT, async(req, res)=>{
+    app.post('/create-payment-intent', verifyJWT, async (req, res) => {
       const { price } = req.body;
-      const amount = price*100;
+      const amount = price * 100;
       const paymentIntent = await stripe.paymentIntents.create({
         amount: amount,
         currency: 'usd',
@@ -216,14 +216,92 @@ async function run() {
     })
 
     //payment related api
-    app.post('/payments', verifyJWT, async(req, res)=>{
+    app.post('/payments', verifyJWT, async (req, res) => {
       const payment = req.body;
       const insertResult = await paymentCollection.insertOne(payment);
 
-      const query = {_id: { $in: payment.cartItems.map(id=> new ObjectId(id))}}
+      const query = { _id: { $in: payment.cartItems.map(id => new ObjectId(id)) } }
       const deleteResult = await cartCollection.deleteMany(query)
 
-      res.send({ insertResult, deleteResult});
+      res.send({ insertResult, deleteResult });
+    })
+
+    app.get('/admin-stats', verifyJWT, verifyAdmin, async (req, res) => {
+      const users = await usersCollection.estimatedDocumentCount();
+      const products = await menuCollection.estimatedDocumentCount();
+      const orders = await paymentCollection.estimatedDocumentCount();
+
+      //best way to get sum of a the price field is to use group and sum operator
+
+      const payments = await paymentCollection.find().toArray();
+      const revenue = payments.reduce((sum, payment) => sum + payment.price, 0)
+
+      res.send({
+        users,
+        products,
+        orders,
+        revenue
+      })
+    })
+
+
+    /**
+     * BANGLA SYSTEM
+     * -------------
+     * 1. load all payments
+     * 2. for each payment, get the menu items array
+     * 3. for each item in the menuItems array get the menuItem from the menu collection.
+     * 4. put them in an array: allOrderedItems
+     * 5. separate all OrderedItems by category using filter
+     * 6. now get the quantity by using length: pizzas.length
+     * 7. for each category use reduce to get the total amount spent on this category;
+     * 
+    */
+    app.get('/order-stats', async (req, res) => {
+      const pipeline = [
+        {
+          $addFields: {
+            menuItemsObjectIds: {
+              $map: {
+                input: '$menuItems',
+                as: 'itemId',
+                in: { $toObjectId: '$$itemId' }
+              }
+            }
+          }
+        },
+        {
+          $lookup: {
+            from: 'menu',
+            localField: 'menuItemsObjectIds',
+            foreignField: '_id',
+            as: 'menuItemsData'
+          }
+        },
+        {
+          $unwind: '$menuItemsData'
+        },
+        {
+          $group: {
+            _id: '$menuItemsData.category',
+            count: { $sum: 1 },
+            total: { $sum: '$menuItemsData.price' }
+          }
+        },
+        {
+          $project: {
+            category: '$_id',
+            count: 1,
+            total: { $round: ['$total', 2] },
+            _id: 0
+          }
+        }
+      ];
+
+      const result = await paymentCollection.aggregate(pipeline).toArray();
+      res.send(result)
+      console.log(result)
+
     })
 
 
